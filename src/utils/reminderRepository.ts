@@ -7,7 +7,11 @@
  * not used so the AdvancedReminderEdit Shortcut is not required.
  */
 
-import type { Reminder, ReminderList } from '../types/index.js';
+import type {
+  Reminder,
+  ReminderList,
+  ReminderScheduleWrite,
+} from '../types/index.js';
 import type {
   AlarmJSON,
   CreateReminderData,
@@ -38,6 +42,15 @@ import {
 import { parseReminderDueDate } from './reminderDateParser.js';
 import { getSubtaskProgress, parseSubtasks } from './subtaskUtils.js';
 import { extractTags } from './tagUtils.js';
+
+function addScheduleArgs(args: string[], data: ReminderScheduleWrite): void {
+  if (data.recurrence === null) args.push('--clear-recurrence');
+  else if (data.recurrence !== undefined)
+    addArg(args, '--recurrence', JSON.stringify(data.recurrence));
+  if (data.earlyReminderMinutes === null) args.push('--clear-early-reminder');
+  else if (data.earlyReminderMinutes !== undefined)
+    addArg(args, '--early-reminder', String(data.earlyReminderMinutes));
+}
 
 const VALID_ALARM_TYPES = ['display', 'audio', 'procedure', 'email'] as const;
 type AlarmType = (typeof VALID_ALARM_TYPES)[number];
@@ -282,6 +295,7 @@ class ReminderRepository implements IReminderRepository {
 
   async createReminder(data: CreateReminderData): Promise<ReminderJSON> {
     const args: string[] = ['reminders', 'create'];
+    addScheduleArgs(args, data);
     addArg(args, '--title', data.title);
     addOptionalArg(args, '--list', data.list);
     addOptionalArg(args, '--notes', data.notes);
@@ -298,6 +312,7 @@ class ReminderRepository implements IReminderRepository {
     // Cross-list moves are rejected by the handler, which shares its
     // `findReminderById` fetch with the notes-rebuild path.
     const args: string[] = ['reminders', 'update'];
+    addScheduleArgs(args, data);
     addArg(args, '--id', data.id);
     addOptionalArg(args, '--title', data.newTitle);
     addOptionalArg(args, '--notes', data.notes);

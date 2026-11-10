@@ -621,3 +621,39 @@ describe('ReminderRepository (event CLI backend)', () => {
     });
   });
 });
+
+describe('Reminder scheduling CLI contract', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockJson.mockResolvedValue(reminderFixture());
+  });
+  it('forwards recurrence and early reminder when creating', async () => {
+    const recurrence = {
+      frequency: 'weekly' as const,
+      interval: 3,
+      endDate: '2028-12-31',
+    };
+    await reminderRepository.createReminder({
+      title: 'Care',
+      recurrence,
+      earlyReminderMinutes: 90,
+    });
+    const args = mockJson.mock.calls[0]![0];
+    expect(JSON.parse(optionValue(args, '--recurrence')!)).toEqual(recurrence);
+    expect(optionValue(args, '--early-reminder')).toBe('90');
+  });
+  it('passes explicit clears but leaves omitted scheduling unchanged', async () => {
+    await reminderRepository.updateReminder({
+      id: 'r',
+      recurrence: null,
+      earlyReminderMinutes: null,
+    });
+    expect(mockJson.mock.calls[0]![0]).toEqual(
+      expect.arrayContaining(['--clear-recurrence', '--clear-early-reminder']),
+    );
+    await reminderRepository.updateReminder({ id: 'r', newTitle: 'Care' });
+    expect(mockJson.mock.calls[1]![0].join(' ')).not.toMatch(
+      /recurrence|early-reminder/,
+    );
+  });
+});

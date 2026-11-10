@@ -1260,3 +1260,45 @@ describe('ValidationSchemas', () => {
     });
   });
 });
+
+describe('Reminder scheduling writes', () => {
+  it.each([
+    'daily',
+    'weekly',
+    'monthly',
+    'yearly',
+  ])('accepts %s recurrence and an early alert', (frequency) => {
+    const input = {
+      title: 'Care',
+      dueDate: '2027-02-10 09:30:00',
+      recurrence: { frequency, interval: 2 },
+      earlyReminderMinutes: 45,
+    };
+    expect(CreateReminderSchema.parse(input)).toEqual(input);
+  });
+  it.each([
+    { recurrence: { frequency: 'weekly' } },
+    { earlyReminderMinutes: 30 },
+    { dueDate: '2027-02-10', recurrence: { frequency: 'hourly' } },
+    { dueDate: '2027-02-10', recurrence: { frequency: 'daily', interval: 0 } },
+    { dueDate: '2027-02-10', earlyReminderMinutes: -1 },
+    { dueDate: '2027-02-10', earlyReminderMinutes: 30 },
+    { dueDate: '2027-02-10', earlyReminderMinutes: 0.5 },
+  ])('rejects invalid scheduling %j', (fields) => {
+    expect(
+      CreateReminderSchema.safeParse({ title: 'Care', ...fields }).success,
+    ).toBe(false);
+  });
+  it('preserves omitted fields and supports explicit removal on update', () => {
+    expect(
+      UpdateReminderSchema.parse({
+        id: 'r',
+        recurrence: null,
+        earlyReminderMinutes: null,
+      }),
+    ).toEqual({ id: 'r', recurrence: null, earlyReminderMinutes: null });
+    expect(
+      UpdateReminderSchema.parse({ id: 'r', title: 'Rename' }),
+    ).not.toHaveProperty('recurrence');
+  });
+});

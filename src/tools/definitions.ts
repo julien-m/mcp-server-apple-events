@@ -18,7 +18,7 @@ export const TOOLS: Tool[] = [
   {
     name: 'reminders_tasks',
     description:
-      'Manages reminder tasks. Supports reading, creating, updating, and deleting reminders. Alarms, recurrence rules, and location-based triggers are read-only via this tool; configure them in Reminders.app.',
+      'Manages reminder tasks. Supports reading, creating, updating, and deleting reminders. Supports recurrence and early alerts. Urgent and location-based triggers cannot be configured via this tool.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -43,6 +43,43 @@ export const TOOLS: Tool[] = [
           type: 'string',
           description:
             "Due date. Use 'YYYY-MM-DD' (no time) for an all-day reminder, which Reminders.app shows as a day without a time. For a specific time use 'YYYY-MM-DD HH:mm:ss' (local time without timezone, e.g., '2025-11-04 18:00:00'). Also supports 'YYYY-MM-DDTHH:mm:ss' or ISO 8601 with timezone (e.g., '2025-10-30T04:00:00Z'). When no timezone is specified, the time is interpreted as local time.",
+        },
+        recurrence: {
+          anyOf: [
+            { type: 'null' },
+            {
+              type: 'object',
+              properties: {
+                frequency: {
+                  type: 'string',
+                  enum: ['daily', 'weekly', 'monthly', 'yearly'],
+                },
+                interval: {
+                  type: 'integer',
+                  minimum: 1,
+                  maximum: 2147483647,
+                  description:
+                    'Every N days/weeks/months/years; defaults to 1.',
+                },
+                endDate: {
+                  type: 'string',
+                  description:
+                    'Optional last recurrence date YYYY-MM-DD, inclusive.',
+                },
+              },
+              required: ['frequency'],
+              additionalProperties: false,
+            },
+          ],
+          description:
+            'Create/replace recurrence. Requires a due date (existing on update). Omit to preserve, null to remove.',
+        },
+        earlyReminderMinutes: {
+          type: ['integer', 'null'],
+          minimum: 1,
+          maximum: 2147483647,
+          description:
+            'Minutes before due time. Requires a timed due date. Omit to preserve, null to clear the native Early Reminder. Preserves EventKit alarms. Uses version-dependent macOS ReminderKit. Does not enable Urgent.',
         },
         note: {
           type: 'string',

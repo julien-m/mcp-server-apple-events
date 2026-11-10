@@ -1,3 +1,4 @@
+import type { ReminderScheduleWrite } from './index.js';
 /**
  * repository.ts
  * Shared type definitions for repository layer JSON interfaces and the
@@ -146,7 +147,7 @@ export interface EventJSON {
  */
 
 /** Fields accepted by `event reminders create`. */
-export interface CreateReminderData {
+export interface CreateReminderData extends ReminderScheduleWrite {
   title: string;
   list?: string;
   notes?: string;
@@ -156,7 +157,7 @@ export interface CreateReminderData {
 }
 
 /** Fields accepted by `event reminders update`. */
-export interface UpdateReminderData {
+export interface UpdateReminderData extends ReminderScheduleWrite {
   id: string;
   newTitle?: string;
   notes?: string;
