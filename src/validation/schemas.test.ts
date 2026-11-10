@@ -1302,3 +1302,46 @@ describe('Reminder scheduling writes', () => {
     ).not.toHaveProperty('recurrence');
   });
 });
+
+describe('Native Urgent scheduling', () => {
+  it('accepts true with a timed due date, false without one, and omission', () => {
+    expect(
+      CreateReminderSchema.parse({
+        title: 'Test',
+        dueDate: '2027-01-12 09:00:00',
+        urgent: true,
+      }).urgent,
+    ).toBe(true);
+    expect(
+      CreateReminderSchema.parse({ title: 'Test', urgent: false }).urgent,
+    ).toBe(false);
+    expect(UpdateReminderSchema.parse({ id: 'r', urgent: false }).urgent).toBe(
+      false,
+    );
+    expect(UpdateReminderSchema.parse({ id: 'r', urgent: true }).urgent).toBe(
+      true,
+    );
+    expect(UpdateReminderSchema.parse({ id: 'r' })).not.toHaveProperty(
+      'urgent',
+    );
+  });
+  it.each([
+    { urgent: true },
+    { urgent: true, dueDate: '2027-01-12' },
+    { urgent: 'true', dueDate: '2027-01-12 09:00:00' },
+    { urgent: null },
+  ])('rejects invalid create %j', (fields) => {
+    expect(
+      CreateReminderSchema.safeParse({ title: 'Test', ...fields }).success,
+    ).toBe(false);
+  });
+  it('rejects enabling with an explicitly all-day due date on update', () => {
+    expect(
+      UpdateReminderSchema.safeParse({
+        id: 'r',
+        urgent: true,
+        dueDate: '2027-01-12',
+      }).success,
+    ).toBe(false);
+  });
+});

@@ -260,6 +260,8 @@ interface BaseToolArgs {
  * Tool argument types - keeping flexible for handler routing while maintaining type safety
  */
 export interface ReminderScheduleWrite {
+  /** Omit to preserve; false disables native Urgent. */
+  urgent?: boolean;
   /** Omit to preserve; null removes the recurrence. */
   recurrence?: {
     frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';

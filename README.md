@@ -157,13 +157,13 @@ Cancel just the September 21 occurrence of my weekly "Team standup".
 
 The server processes natural-language requests, interacts with Apple's native Reminders and Calendar apps, and returns structured results.
 
-> Reminder recurrence and early alerts are writable through `recurrence` and `earlyReminderMinutes`. Omit either field to preserve its value; pass `null` to remove it. Location triggers and Urgent are not writable through this server. Calendar recurrence remains read-only.
+> Reminder recurrence and early alerts are writable through `recurrence` and `earlyReminderMinutes`. Omit either field to preserve its value; pass `null` to remove it. Native Urgent is writable through `urgent`; location triggers remain read-only. Calendar recurrence remains read-only.
 
 ### Reminder recurrence and early alerts
 
 Create or update a reminder with `recurrence: { frequency: "weekly", interval: 2 }` and `earlyReminderMinutes: 30`. Supported frequencies are `daily`, `weekly`, `monthly`, and `yearly`; the interval defaults to 1. An optional `endDate` ends the recurrence inclusively. Recurrence requires a due date; an early alert requires a due date with a time. On update, the existing due date can be used. Dates without an offset use the Mac's local time zone.
 
-Updating another field preserves scheduling. The native Early Reminder field is written through an isolated, version-dependent ReminderKit adapter; EventKit alarms are preserved. `earlyReminderMinutes: null` clears the native Early Reminder. Setting or removing recurrence does not change other reminder fields. This is not the iOS Urgent alarm. Early Reminder is separate from the `alarms` returned by EventKit and is not exposed by the existing read model. Unsupported ReminderKit versions fail explicitly. If the native stage fails after an EventKit save, the error includes the saved reminder ID: read it before retrying to avoid duplicates.
+Updating another field preserves scheduling. The native Early Reminder field is written through an isolated, version-dependent ReminderKit adapter; EventKit alarms are preserved. `earlyReminderMinutes: null` clears the native Early Reminder. Setting or removing recurrence does not change other reminder fields. Set `urgent: true` to enable the native Urgent alarm, `urgent: false` to disable it, or omit it to preserve the current value. Enabling requires a due date with a time. The native Urgent setting is also written and verified through ReminderKit; it does not change priority or the early-reminder value. Early Reminder is separate from the `alarms` returned by EventKit and is not exposed by the existing read model. Unsupported ReminderKit versions fail explicitly. If the native stage fails after an EventKit save, the error includes the saved reminder ID: read it before retrying to avoid duplicates.
 
 This checkout tracks the maintained forks [julien-m/mcp-server-apple-events](https://github.com/julien-m/mcp-server-apple-events) and [julien-m/event](https://github.com/julien-m/event); the original repositories remain configured as `upstream`.
 

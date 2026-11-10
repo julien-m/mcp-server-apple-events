@@ -639,7 +639,9 @@ describe('Reminder scheduling CLI contract', () => {
       earlyReminderMinutes: 90,
     });
     const args = mockJson.mock.calls[0]![0];
-    expect(JSON.parse(optionValue(args, '--recurrence')!)).toEqual(recurrence);
+    expect(JSON.parse(optionValue(args, '--recurrence-json')!)).toEqual(
+      recurrence,
+    );
     expect(optionValue(args, '--early-reminder')).toBe('90');
   });
   it('passes explicit clears but leaves omitted scheduling unchanged', async () => {
@@ -649,11 +651,29 @@ describe('Reminder scheduling CLI contract', () => {
       earlyReminderMinutes: null,
     });
     expect(mockJson.mock.calls[0]![0]).toEqual(
-      expect.arrayContaining(['--clear-recurrence', '--clear-early-reminder']),
+      expect.arrayContaining([
+        '--clear-schedule-recurrence',
+        '--clear-early-reminder',
+      ]),
     );
     await reminderRepository.updateReminder({ id: 'r', newTitle: 'Care' });
     expect(mockJson.mock.calls[1]![0].join(' ')).not.toMatch(
       /recurrence|early-reminder/,
     );
+  });
+});
+
+describe('Native Urgent CLI contract', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockJson.mockResolvedValue(reminderFixture());
+  });
+  it('forwards both true and false, and leaves omitted state unchanged', async () => {
+    await reminderRepository.createReminder({ title: 'Test', urgent: true });
+    expect(optionValue(mockJson.mock.calls[0]![0], '--urgent')).toBe('true');
+    await reminderRepository.updateReminder({ id: 'r', urgent: false });
+    expect(optionValue(mockJson.mock.calls[1]![0], '--urgent')).toBe('false');
+    await reminderRepository.updateReminder({ id: 'r', newTitle: 'Test' });
+    expect(optionValue(mockJson.mock.calls[2]![0], '--urgent')).toBeUndefined();
   });
 });

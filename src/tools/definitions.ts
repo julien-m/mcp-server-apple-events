@@ -18,7 +18,7 @@ export const TOOLS: Tool[] = [
   {
     name: 'reminders_tasks',
     description:
-      'Manages reminder tasks. Supports reading, creating, updating, and deleting reminders. Supports recurrence and early alerts. Urgent and location-based triggers cannot be configured via this tool.',
+      'Manages reminder tasks. Supports reading, creating, updating, and deleting reminders. Supports recurrence, native Early Reminder and Urgent. Location-based triggers cannot be configured via this tool.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -73,6 +73,11 @@ export const TOOLS: Tool[] = [
           ],
           description:
             'Create/replace recurrence. Requires a due date (existing on update). Omit to preserve, null to remove.',
+        },
+        urgent: {
+          type: 'boolean',
+          description:
+            'Enable the native Urgent alarm with true; false disables it. Omit to preserve. Enabling requires a timed due date (existing on update). Uses version-dependent macOS ReminderKit.',
         },
         earlyReminderMinutes: {
           type: ['integer', 'null'],

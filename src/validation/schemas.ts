@@ -470,6 +470,7 @@ const SubtaskTitleSchema = createSafeTextSchema(
 const SubtaskTitleArraySchema = z.array(SubtaskTitleSchema).optional();
 
 const ReminderScheduleFields = {
+  urgent: z.boolean().optional(),
   recurrence: z
     .object({
       frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
@@ -511,14 +512,21 @@ export const SafeIdSchema = z.string().min(1, 'ID cannot be empty');
  * Tool-specific validation schemas
  */
 function validateEarlyDue(
-  value: { earlyReminderMinutes?: number | null; dueDate?: string },
+  value: {
+    earlyReminderMinutes?: number | null;
+    urgent?: boolean;
+    dueDate?: string;
+  },
   ctx: z.RefinementCtx,
 ) {
-  if (value.earlyReminderMinutes != null && value.dueDate?.length === 10)
+  if (
+    (value.earlyReminderMinutes != null || value.urgent === true) &&
+    value.dueDate?.length === 10
+  )
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['dueDate'],
-      message: 'An early reminder requires a due date with a time',
+      message: 'Early Reminder and Urgent require a due date with a time',
     });
 }
 
@@ -527,13 +535,16 @@ export const CreateReminderSchema = z
   .superRefine((value, ctx) => {
     validateEarlyDue(value, ctx);
     if (
-      (value.recurrence || value.earlyReminderMinutes != null) &&
+      (value.recurrence ||
+        value.earlyReminderMinutes != null ||
+        value.urgent === true) &&
       !value.dueDate
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['dueDate'],
-        message: 'A due date is required for recurrence or an early reminder',
+        message:
+          'A due date is required for recurrence, Early Reminder or Urgent',
       });
     }
   });

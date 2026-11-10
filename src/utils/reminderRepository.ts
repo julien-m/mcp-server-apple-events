@@ -44,9 +44,10 @@ import { getSubtaskProgress, parseSubtasks } from './subtaskUtils.js';
 import { extractTags } from './tagUtils.js';
 
 function addScheduleArgs(args: string[], data: ReminderScheduleWrite): void {
-  if (data.recurrence === null) args.push('--clear-recurrence');
+  if (data.urgent !== undefined) addArg(args, '--urgent', String(data.urgent));
+  if (data.recurrence === null) args.push('--clear-schedule-recurrence');
   else if (data.recurrence !== undefined)
-    addArg(args, '--recurrence', JSON.stringify(data.recurrence));
+    addArg(args, '--recurrence-json', JSON.stringify(data.recurrence));
   if (data.earlyReminderMinutes === null) args.push('--clear-early-reminder');
   else if (data.earlyReminderMinutes !== undefined)
     addArg(args, '--early-reminder', String(data.earlyReminderMinutes));
