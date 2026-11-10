@@ -157,7 +157,15 @@ Cancel just the September 21 occurrence of my weekly "Team standup".
 
 The server processes natural-language requests, interacts with Apple's native Reminders and Calendar apps, and returns structured results.
 
-> Alarms, recurrence rules, and location triggers are read-only via this server — configure them in Reminders.app / Calendar.app. Read tools preserve these values in structured records when the underlying app provides them.
+> Reminder recurrence and early alerts are writable through `recurrence` and `earlyReminderMinutes`. Omit either field to preserve its value; pass `null` to remove it. Native Urgent is writable through `urgent`; location triggers remain read-only. Calendar recurrence remains read-only.
+
+### Reminder recurrence and early alerts
+
+Create or update a reminder with `recurrence: { frequency: "weekly", interval: 2 }` and `earlyReminderMinutes: 30`. Supported frequencies are `daily`, `weekly`, `monthly`, and `yearly`; the interval defaults to 1. An optional `endDate` ends the recurrence inclusively. Recurrence requires a due date; an early alert requires a due date with a time. On update, the existing due date can be used. Dates without an offset use the Mac's local time zone.
+
+Updating another field preserves scheduling. The native Early Reminder field is written through an isolated, version-dependent ReminderKit adapter; EventKit alarms are preserved. `earlyReminderMinutes: null` clears the native Early Reminder. Setting or removing recurrence does not change other reminder fields. Set `urgent: true` to enable the native Urgent alarm, `urgent: false` to disable it, or omit it to preserve the current value. Enabling requires a due date with a time. The native Urgent setting is also written and verified through ReminderKit; it does not change priority or the early-reminder value. Early Reminder is separate from the `alarms` returned by EventKit and is not exposed by the existing read model. Unsupported ReminderKit versions fail explicitly. If the native stage fails after an EventKit save, the error includes the saved reminder ID: read it before retrying to avoid duplicates.
+
+This checkout tracks the maintained forks [julien-m/mcp-server-apple-events](https://github.com/julien-m/mcp-server-apple-events) and [julien-m/event](https://github.com/julien-m/event); the original repositories remain configured as `upstream`.
 
 ## Write confirmation and untrusted data
 
@@ -297,7 +305,7 @@ The accompanying `content` array contains a static text summary first (for examp
 
 Reminder URLs are stored in the native `url` property and in the structured `URLs:` notes block. Calendar event URLs are stored in EventKit's native URL property. Both reject unsafe URI schemes and blocked HTTP(S) addresses.
 
-> **Read-only fields**: reminder alarms, reminder recurrence and location triggers, calendar recurrence rules and structured locations, all-day toggles, and cross-calendar moves are not writable via this server. Calendar event alarms, URLs, and scheduling availability can be set through create/update. Calendar availability writes require a calendar that supports the selected value. See [docs/migration-to-event-cli.md](docs/migration-to-event-cli.md) for the remaining gaps.
+> **Read-only fields**: arbitrary reminder alarms and location triggers, calendar recurrence rules and structured locations, all-day toggles, and cross-calendar moves are not writable via this server. Calendar event alarms, URLs, and scheduling availability can be set through create/update. Calendar availability writes require a calendar that supports the selected value. See [docs/migration-to-event-cli.md](docs/migration-to-event-cli.md) for the remaining gaps.
 
 ## Structured Prompt Library
 

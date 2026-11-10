@@ -1260,3 +1260,88 @@ describe('ValidationSchemas', () => {
     });
   });
 });
+
+describe('Reminder scheduling writes', () => {
+  it.each([
+    'daily',
+    'weekly',
+    'monthly',
+    'yearly',
+  ])('accepts %s recurrence and an early alert', (frequency) => {
+    const input = {
+      title: 'Care',
+      dueDate: '2027-02-10 09:30:00',
+      recurrence: { frequency, interval: 2 },
+      earlyReminderMinutes: 45,
+    };
+    expect(CreateReminderSchema.parse(input)).toEqual(input);
+  });
+  it.each([
+    { recurrence: { frequency: 'weekly' } },
+    { earlyReminderMinutes: 30 },
+    { dueDate: '2027-02-10', recurrence: { frequency: 'hourly' } },
+    { dueDate: '2027-02-10', recurrence: { frequency: 'daily', interval: 0 } },
+    { dueDate: '2027-02-10', earlyReminderMinutes: -1 },
+    { dueDate: '2027-02-10', earlyReminderMinutes: 30 },
+    { dueDate: '2027-02-10', earlyReminderMinutes: 0.5 },
+  ])('rejects invalid scheduling %j', (fields) => {
+    expect(
+      CreateReminderSchema.safeParse({ title: 'Care', ...fields }).success,
+    ).toBe(false);
+  });
+  it('preserves omitted fields and supports explicit removal on update', () => {
+    expect(
+      UpdateReminderSchema.parse({
+        id: 'r',
+        recurrence: null,
+        earlyReminderMinutes: null,
+      }),
+    ).toEqual({ id: 'r', recurrence: null, earlyReminderMinutes: null });
+    expect(
+      UpdateReminderSchema.parse({ id: 'r', title: 'Rename' }),
+    ).not.toHaveProperty('recurrence');
+  });
+});
+
+describe('Native Urgent scheduling', () => {
+  it('accepts true with a timed due date, false without one, and omission', () => {
+    expect(
+      CreateReminderSchema.parse({
+        title: 'Test',
+        dueDate: '2027-01-12 09:00:00',
+        urgent: true,
+      }).urgent,
+    ).toBe(true);
+    expect(
+      CreateReminderSchema.parse({ title: 'Test', urgent: false }).urgent,
+    ).toBe(false);
+    expect(UpdateReminderSchema.parse({ id: 'r', urgent: false }).urgent).toBe(
+      false,
+    );
+    expect(UpdateReminderSchema.parse({ id: 'r', urgent: true }).urgent).toBe(
+      true,
+    );
+    expect(UpdateReminderSchema.parse({ id: 'r' })).not.toHaveProperty(
+      'urgent',
+    );
+  });
+  it.each([
+    { urgent: true },
+    { urgent: true, dueDate: '2027-01-12' },
+    { urgent: 'true', dueDate: '2027-01-12 09:00:00' },
+    { urgent: null },
+  ])('rejects invalid create %j', (fields) => {
+    expect(
+      CreateReminderSchema.safeParse({ title: 'Test', ...fields }).success,
+    ).toBe(false);
+  });
+  it('rejects enabling with an explicitly all-day due date on update', () => {
+    expect(
+      UpdateReminderSchema.safeParse({
+        id: 'r',
+        urgent: true,
+        dueDate: '2027-01-12',
+      }).success,
+    ).toBe(false);
+  });
+});

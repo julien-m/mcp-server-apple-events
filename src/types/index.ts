@@ -259,7 +259,20 @@ interface BaseToolArgs {
 /**
  * Tool argument types - keeping flexible for handler routing while maintaining type safety
  */
-export interface RemindersToolArgs extends BaseToolArgs {
+export interface ReminderScheduleWrite {
+  /** Omit to preserve; false disables native Urgent. */
+  urgent?: boolean;
+  /** Omit to preserve; null removes the recurrence. */
+  recurrence?: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    interval?: number;
+    endDate?: string;
+  } | null;
+  /** Minutes before due time; omit to preserve, null removes early alerts. */
+  earlyReminderMinutes?: number | null;
+}
+
+export interface RemindersToolArgs extends BaseToolArgs, ReminderScheduleWrite {
   action: ReminderAction;
   id?: string;
   // Read filters

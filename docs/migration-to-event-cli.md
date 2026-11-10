@@ -64,8 +64,8 @@ so values set inside Reminders.app or Calendar.app remain visible.
 
 | Field | Action | Workaround |
 | --- | --- | --- |
-| `alarms`, `clearAlarms` | create / update | Configure alarms in Reminders.app. |
-| `recurrence`, `recurrenceRules`, `clearRecurrence` | create / update | Configure recurrence in Reminders.app. |
+| `alarms`, `clearAlarms` | create / update | Use `earlyReminderMinutes` for the native Early Reminder field via the macOS ReminderKit adapter; arbitrary alarms remain read-only. |
+| `recurrenceRules`, `clearRecurrence` | create / update | Use `recurrence` to set a basic rule; `recurrence: null` removes it. |
 | `locationTrigger`, `clearLocationTrigger` | create / update | Configure location-based reminders in Reminders.app. |
 | `location` (reminder text) | create / update | Set the reminder's location text from Reminders.app. |
 | `completionDate` | update | Use `completed: true` to mark complete (timestamp is set by EventKit automatically). |

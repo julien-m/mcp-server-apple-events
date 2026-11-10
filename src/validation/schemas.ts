@@ -469,8 +469,33 @@ const SubtaskTitleSchema = createSafeTextSchema(
 
 const SubtaskTitleArraySchema = z.array(SubtaskTitleSchema).optional();
 
+const ReminderScheduleFields = {
+  urgent: z.boolean().optional(),
+  recurrence: z
+    .object({
+      frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+      interval: z.number().int().min(1).max(2147483647).optional(),
+      endDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .refine(isValidDateInput)
+        .optional(),
+    })
+    .strict()
+    .nullable()
+    .optional(),
+  earlyReminderMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(2147483647)
+    .nullable()
+    .optional(),
+};
+
 /** Fields accepted by `event reminders create`. */
 const BaseReminderFields = {
+  ...ReminderScheduleFields,
   title: SafeTextSchema,
   dueDate: SafeDateSchema,
   note: SafeNoteSchema,
@@ -486,7 +511,43 @@ export const SafeIdSchema = z.string().min(1, 'ID cannot be empty');
 /**
  * Tool-specific validation schemas
  */
-export const CreateReminderSchema = z.object(BaseReminderFields);
+function validateEarlyDue(
+  value: {
+    earlyReminderMinutes?: number | null;
+    urgent?: boolean;
+    dueDate?: string;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (
+    (value.earlyReminderMinutes != null || value.urgent === true) &&
+    value.dueDate?.length === 10
+  )
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dueDate'],
+      message: 'Early Reminder and Urgent require a due date with a time',
+    });
+}
+
+export const CreateReminderSchema = z
+  .object(BaseReminderFields)
+  .superRefine((value, ctx) => {
+    validateEarlyDue(value, ctx);
+    if (
+      (value.recurrence ||
+        value.earlyReminderMinutes != null ||
+        value.urgent === true) &&
+      !value.dueDate
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['dueDate'],
+        message:
+          'A due date is required for recurrence, Early Reminder or Urgent',
+      });
+    }
+  });
 
 export const ReadRemindersSchema = z
   .object({
@@ -521,20 +582,23 @@ export const ReadRemindersSchema = z
   });
 
 /** Fields accepted by `event reminders update`. */
-export const UpdateReminderSchema = z.object({
-  id: SafeIdSchema,
-  title: SafeTextSchema.optional(),
-  startDate: SafeDateSchema,
-  dueDate: SafeDateSchema,
-  note: SafeNoteSchema,
-  url: SafeUrlSchema,
-  completed: z.boolean().optional(),
-  targetList: SafeListNameSchema,
-  priority: PriorityValueSchema,
-  tags: TagArraySchema,
-  addTags: TagArraySchema,
-  removeTags: TagArraySchema,
-});
+export const UpdateReminderSchema = z
+  .object({
+    ...ReminderScheduleFields,
+    id: SafeIdSchema,
+    title: SafeTextSchema.optional(),
+    startDate: SafeDateSchema,
+    dueDate: SafeDateSchema,
+    note: SafeNoteSchema,
+    url: SafeUrlSchema,
+    completed: z.boolean().optional(),
+    targetList: SafeListNameSchema,
+    priority: PriorityValueSchema,
+    tags: TagArraySchema,
+    addTags: TagArraySchema,
+    removeTags: TagArraySchema,
+  })
+  .superRefine(validateEarlyDue);
 
 export const DeleteReminderSchema = z.object({
   id: SafeIdSchema,

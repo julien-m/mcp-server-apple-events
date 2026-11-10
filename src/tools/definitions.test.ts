@@ -69,6 +69,8 @@ describe('Tools Definitions', () => {
         (tool) => tool.name === 'reminders_tasks',
       );
       const remindersProps = remindersTool?.inputSchema.properties ?? {};
+      expect(remindersProps).toHaveProperty('recurrence');
+      expect(remindersProps).toHaveProperty('earlyReminderMinutes');
 
       // Reminder write fields still wired through `event reminders create|update`
       // (`startDate` is shared with the read-window filter below).
@@ -104,12 +106,13 @@ describe('Tools Definitions', () => {
         (tool) => tool.name === 'reminders_tasks',
       );
       const remindersProps = remindersTool?.inputSchema.properties ?? {};
+      expect(remindersProps).toHaveProperty('recurrence');
+      expect(remindersProps).toHaveProperty('earlyReminderMinutes');
       for (const removed of [
         'completionDate',
         'location',
         'alarms',
         'clearAlarms',
-        'recurrence',
         'recurrenceRules',
         'clearRecurrence',
         'locationTrigger',
