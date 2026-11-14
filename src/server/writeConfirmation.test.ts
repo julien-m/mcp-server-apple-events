@@ -1,3 +1,12 @@
+jest.mock('../reminders/write-coordinator.js', () => ({
+  coordinateReminderWrite: (
+    _toolName: string,
+    _args: unknown,
+    execute: () => Promise<unknown>,
+  ) => execute(),
+  coordinateReminderListWrite: (execute: () => Promise<unknown>) => execute(),
+}));
+
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type {

@@ -677,3 +677,72 @@ describe('Native Urgent CLI contract', () => {
     expect(optionValue(mockJson.mock.calls[2]![0], '--urgent')).toBeUndefined();
   });
 });
+
+it('retains a native identity but marks an ACK missing the requested effect', async () => {
+  const actual = reminderFixture({ title: 'Before', notes: 'Existing' });
+  mockJson.mockResolvedValueOnce(actual);
+  const result = await reminderRepository.updateReminder({
+    id: actual.id,
+    newTitle: 'After',
+    notes: 'Expected composed notes',
+  });
+  expect(result).toMatchObject({
+    id: actual.id,
+    title: actual.title,
+    writeVerification: 'mismatch',
+  });
+});
+
+it('sends a targeted alarm within the observed baseline and verifies preserved notes/alarms', async () => {
+  const { reminderVersion } = await import('../reminders/version.js');
+  mockJson.mockReset();
+  const before = reminderFixture({
+    notes: 'Keep [#tag]',
+    alarms: [{ relativeOffset: -600, alarmType: 'display' }],
+  });
+  const at = new Date(Math.ceil(Date.now() / 1000) * 1000 + 60_000)
+    .toISOString()
+    .replace('.000Z', 'Z');
+  const after = {
+    ...before,
+    alarms: [...before.alarms!, { absoluteDate: at, alarmType: 'display' }],
+  };
+  mockJson.mockResolvedValueOnce(before).mockResolvedValueOnce(after);
+  const result = await reminderRepository.updateReminder({
+    id: before.id,
+    expectedVersion: reminderVersion(before),
+    temporalAlarm: { action: 'add', at },
+  });
+  expect(result.writeVerification).toBe('matched');
+  const args = mockJson.mock.calls[1]![0];
+  expect(JSON.parse(optionValue(args, '--temporal-alarm-json')!)).toEqual({
+    action: 'add',
+    at,
+  });
+  expect(result.notes).toBe(before.notes);
+});
+
+it('rejects a changed late native baseline and missing alarm target before invoking update', async () => {
+  const { reminderVersion } = await import('../reminders/version.js');
+  mockJson.mockReset();
+  const before = reminderFixture();
+  const at = '2030-01-01T00:00:00Z';
+  mockJson.mockResolvedValueOnce({ ...before, notes: 'External edit' });
+  await expect(
+    reminderRepository.updateReminder({
+      id: before.id,
+      expectedVersion: reminderVersion(before),
+      temporalAlarm: { action: 'clear', target: at },
+    }),
+  ).rejects.toThrow('revision_conflict');
+  expect(mockJson).toHaveBeenCalledTimes(1);
+  mockJson.mockReset().mockResolvedValueOnce(before);
+  await expect(
+    reminderRepository.updateReminder({
+      id: before.id,
+      expectedVersion: reminderVersion(before),
+      temporalAlarm: { action: 'clear', target: at },
+    }),
+  ).rejects.toThrow('target_missing');
+  expect(mockJson).toHaveBeenCalledTimes(1);
+});

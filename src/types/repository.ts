@@ -71,6 +71,8 @@ export interface ParticipantJSON {
  */
 
 export interface ReminderJSON {
+  writeVerification?: 'matched' | 'mismatch' | 'unavailable';
+  version?: string; // Added by the MCP repository, absent from the native CLI.
   id: string;
   title: string;
   isCompleted: boolean;
@@ -158,6 +160,7 @@ export interface CreateReminderData extends ReminderScheduleWrite {
 
 /** Fields accepted by `event reminders update`. */
 export interface UpdateReminderData extends ReminderScheduleWrite {
+  expectedVersion?: string;
   id: string;
   newTitle?: string;
   notes?: string;

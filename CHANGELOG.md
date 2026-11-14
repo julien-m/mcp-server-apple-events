@@ -810,3 +810,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/FradSer/mcp-server-apple-events/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/FradSer/mcp-server-apple-events/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/FradSer/mcp-server-apple-events/releases/tag/v0.0.1
+
+## Unreleased — reminder concurrency
+
+- Breaking: reminder update/delete and all subtask writes now require the parent
+  reminder's last-read `expectedVersion`; reads expose the observation `version`.
+- Serialize reminder/list write critical sections across local MCP processes,
+  reject stale observations, verify native readback and expose typed conflict or
+  unknown outcomes without automatic replay.
+- Disclose `native_observed_non_atomic`: no EventKit/iCloud cross-device CAS.
+
+### Targeted temporal reminder alarms
+
+- Add `temporalAlarm` add/replace/clear through the existing MCP and native Swift
+  schedule boundary, with offset-bearing second-precision instants and unique
+  observed-instant selection.
+- Preserve unrelated alarms/fields, reject ambiguous/duplicate/past new alarms,
+  recheck the late observed version, and retain native identity on post-save unknown.
+- Add scoped native tests and a config-driven, separate-client synthetic
+  qualification script; no personal notification settings or permissions change.

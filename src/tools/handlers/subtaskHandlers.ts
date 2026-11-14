@@ -40,7 +40,12 @@ export const handleReadSubtasks = async (
     const subtasks = parseSubtasks(reminder.notes);
 
     return createStructuredToolResult('Read reminder subtasks.', [
-      { parentTitle: reminder.title, subtasks },
+      {
+        parentTitle: reminder.title,
+        reminderId: reminder.id,
+        version: reminder.version,
+        subtasks,
+      },
     ]);
   }, 'read subtasks');
 };
@@ -60,12 +65,18 @@ export const handleCreateSubtask = async (
       reminder.notes,
     );
 
-    await reminderRepository.updateReminder({
+    const written = await reminderRepository.updateReminder({
       id: validatedArgs.reminderId,
       notes: updatedNotes,
     });
 
-    return createStructuredToolResult('Created subtask.', [subtask]);
+    return createStructuredToolResult('Created subtask.', [subtask], {
+      reminderWrite: {
+        id: written.id,
+        version: written.version,
+        writeVerification: written.writeVerification,
+      },
+    });
   }, 'create subtask');
 };
 
@@ -88,7 +99,7 @@ export const handleUpdateSubtask = async (
       reminder.notes,
     );
 
-    await reminderRepository.updateReminder({
+    const written = await reminderRepository.updateReminder({
       id: validatedArgs.reminderId,
       notes: updatedNotes,
     });
@@ -98,6 +109,13 @@ export const handleUpdateSubtask = async (
       parseSubtasks(updatedNotes).filter(
         (subtask) => subtask.id === validatedArgs.subtaskId,
       ),
+      {
+        reminderWrite: {
+          id: written.id,
+          version: written.version,
+          writeVerification: written.writeVerification,
+        },
+      },
     );
   }, 'update subtask');
 };
@@ -114,17 +132,27 @@ export const handleDeleteSubtask = async (
 
     const updatedNotes = removeSubtask(validatedArgs.subtaskId, reminder.notes);
 
-    await reminderRepository.updateReminder({
+    const written = await reminderRepository.updateReminder({
       id: validatedArgs.reminderId,
       notes: updatedNotes,
     });
 
-    return createStructuredToolResult('Deleted subtask.', [
+    return createStructuredToolResult(
+      'Deleted subtask.',
+      [
+        {
+          reminderId: validatedArgs.reminderId,
+          subtaskId: validatedArgs.subtaskId,
+        },
+      ],
       {
-        reminderId: validatedArgs.reminderId,
-        subtaskId: validatedArgs.subtaskId,
+        reminderWrite: {
+          id: written.id,
+          version: written.version,
+          writeVerification: written.writeVerification,
+        },
       },
-    ]);
+    );
   }, 'delete subtask');
 };
 
@@ -143,12 +171,22 @@ export const handleToggleSubtask = async (
       reminder.notes,
     );
 
-    await reminderRepository.updateReminder({
+    const written = await reminderRepository.updateReminder({
       id: validatedArgs.reminderId,
       notes: updatedNotes,
     });
 
-    return createStructuredToolResult('Updated subtask completion.', [subtask]);
+    return createStructuredToolResult(
+      'Updated subtask completion.',
+      [subtask],
+      {
+        reminderWrite: {
+          id: written.id,
+          version: written.version,
+          writeVerification: written.writeVerification,
+        },
+      },
+    );
   }, 'toggle subtask');
 };
 
@@ -164,16 +202,26 @@ export const handleReorderSubtasks = async (
 
     const updatedNotes = reorderSubtasks(validatedArgs.order, reminder.notes);
 
-    await reminderRepository.updateReminder({
+    const written = await reminderRepository.updateReminder({
       id: validatedArgs.reminderId,
       notes: updatedNotes,
     });
 
-    return createStructuredToolResult('Reordered subtasks.', [
+    return createStructuredToolResult(
+      'Reordered subtasks.',
+      [
+        {
+          reminderId: validatedArgs.reminderId,
+          order: validatedArgs.order,
+        },
+      ],
       {
-        reminderId: validatedArgs.reminderId,
-        order: validatedArgs.order,
+        reminderWrite: {
+          id: written.id,
+          version: written.version,
+          writeVerification: written.writeVerification,
+        },
       },
-    ]);
+    );
   }, 'reorder subtasks');
 };

@@ -1,3 +1,12 @@
+jest.mock('../reminders/write-coordinator.js', () => ({
+  coordinateReminderWrite: (
+    _toolName: string,
+    _args: unknown,
+    execute: () => Promise<unknown>,
+  ) => execute(),
+  coordinateReminderListWrite: (execute: () => Promise<unknown>) => execute(),
+}));
+
 // Use global Jest functions to avoid extra dependencies
 
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';

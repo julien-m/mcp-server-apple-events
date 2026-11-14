@@ -1,3 +1,12 @@
+jest.mock('../reminders/write-coordinator.js', () => ({
+  coordinateReminderWrite: (
+    _toolName: string,
+    _args: unknown,
+    execute: () => Promise<unknown>,
+  ) => execute(),
+  coordinateReminderListWrite: (execute: () => Promise<unknown>) => execute(),
+}));
+
 /**
  * reminders_subtasks.test.ts
  *
@@ -37,6 +46,7 @@ const callSubtaskTool = (args?: SubtasksToolArgs) =>
 
 const reminderWithoutSubtasks = {
   id: 'reminder-123',
+  version: 'observed',
   title: 'Parent reminder',
   list: 'Default',
   isCompleted: false,
@@ -101,6 +111,8 @@ describe('reminders_subtasks tool', () => {
         records: [
           {
             parentTitle: 'Parent reminder',
+            reminderId: reminderWithoutSubtasks.id,
+            version: reminderWithoutSubtasks.version,
             subtasks: [
               { id: 'aabbccdd', title: 'First subtask', isCompleted: false },
               { id: 'eeff0011', title: 'Second subtask', isCompleted: true },
@@ -126,7 +138,14 @@ describe('reminders_subtasks tool', () => {
           source: 'apple-calendar-reminders',
           trust: 'untrusted',
         },
-        records: [{ parentTitle: 'Parent reminder', subtasks: [] }],
+        records: [
+          {
+            parentTitle: 'Parent reminder',
+            reminderId: reminderWithoutSubtasks.id,
+            version: reminderWithoutSubtasks.version,
+            subtasks: [],
+          },
+        ],
       });
       expect(jsonMirrorOf(result)).toEqual(result.structuredContent);
     });
@@ -151,6 +170,8 @@ describe('reminders_subtasks tool', () => {
         records: [
           {
             parentTitle: maliciousReminder.title,
+            reminderId: maliciousReminder.id,
+            version: maliciousReminder.version,
             subtasks: [],
           },
         ],
@@ -164,7 +185,10 @@ describe('reminders_subtasks tool', () => {
   describe('create', () => {
     it('appends a new subtask to existing notes and saves the updated notes', async () => {
       mockRepo.findReminderById.mockResolvedValue(reminderWithoutSubtasks);
-      mockRepo.updateReminder.mockResolvedValue(undefined);
+      mockRepo.updateReminder.mockResolvedValue({
+        ...reminderWithoutSubtasks,
+        version: 'written',
+      });
 
       const result = await callSubtaskTool({
         action: 'create',
@@ -205,7 +229,10 @@ describe('reminders_subtasks tool', () => {
   describe('update', () => {
     it('updates an existing subtask title and persists the notes', async () => {
       mockRepo.findReminderById.mockResolvedValue(reminderWithTwoSubtasks);
-      mockRepo.updateReminder.mockResolvedValue(undefined);
+      mockRepo.updateReminder.mockResolvedValue({
+        ...reminderWithoutSubtasks,
+        version: 'written',
+      });
 
       const result = await callSubtaskTool({
         action: 'update',
@@ -236,7 +263,10 @@ describe('reminders_subtasks tool', () => {
       [{ title: '  Trimmed title  ' }, 'Trimmed title', false],
     ])('returns the persisted state for %j', async (changes, title, isCompleted) => {
       mockRepo.findReminderById.mockResolvedValue(reminderWithTwoSubtasks);
-      mockRepo.updateReminder.mockResolvedValue(undefined);
+      mockRepo.updateReminder.mockResolvedValue({
+        ...reminderWithoutSubtasks,
+        version: 'written',
+      });
       const result = await callSubtaskTool({
         action: 'update',
         reminderId: 'reminder-123',
@@ -274,7 +304,10 @@ describe('reminders_subtasks tool', () => {
   describe('toggle', () => {
     it('flips completion state and reports the new status', async () => {
       mockRepo.findReminderById.mockResolvedValue(reminderWithTwoSubtasks);
-      mockRepo.updateReminder.mockResolvedValue(undefined);
+      mockRepo.updateReminder.mockResolvedValue({
+        ...reminderWithoutSubtasks,
+        version: 'written',
+      });
 
       const result = await callSubtaskTool({
         action: 'toggle',
@@ -298,7 +331,10 @@ describe('reminders_subtasks tool', () => {
   describe('delete', () => {
     it('removes the subtask and saves the trimmed notes', async () => {
       mockRepo.findReminderById.mockResolvedValue(reminderWithTwoSubtasks);
-      mockRepo.updateReminder.mockResolvedValue(undefined);
+      mockRepo.updateReminder.mockResolvedValue({
+        ...reminderWithoutSubtasks,
+        version: 'written',
+      });
 
       const result = await callSubtaskTool({
         action: 'delete',
@@ -322,7 +358,10 @@ describe('reminders_subtasks tool', () => {
   describe('reorder', () => {
     it('reorders subtasks to match the supplied order', async () => {
       mockRepo.findReminderById.mockResolvedValue(reminderWithTwoSubtasks);
-      mockRepo.updateReminder.mockResolvedValue(undefined);
+      mockRepo.updateReminder.mockResolvedValue({
+        ...reminderWithoutSubtasks,
+        version: 'written',
+      });
 
       const result = await callSubtaskTool({
         action: 'reorder',

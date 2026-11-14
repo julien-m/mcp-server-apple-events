@@ -79,6 +79,7 @@ export function registerHandlers(
           result.content?.confirm === true
         );
       },
+      extra.signal,
     ),
   );
 

@@ -21,6 +21,8 @@ export default {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   transformIgnorePatterns: ['node_modules/'],
+  // SwiftPM checkout copies are build artifacts, not JavaScript packages under test.
+  modulePathIgnorePatterns: ['<rootDir>/vendor/event/\\.build'],
   testMatch: ['<rootDir>/src/**/*.test.ts', '<rootDir>/src/**/*.spec.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/', '<rootDir>/dist/'],
   collectCoverageFrom: [

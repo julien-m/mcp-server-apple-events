@@ -16,7 +16,11 @@ import {
   getEnvironmentBinaryConfig,
 } from './binaryValidator.js';
 import { FILE_SYSTEM } from './constants.js';
-import { CliUserError } from './errorHandling.js';
+import {
+  CliPreconditionError,
+  CliReminderOutcomeUnknownError,
+  CliUserError,
+} from './errorHandling.js';
 import { bufferToString } from './helpers.js';
 import { findProjectRoot } from './projectUtils.js';
 
@@ -238,6 +242,14 @@ function throwForStderr(stderr: string): never {
   if (domain) {
     throw new CliPermissionError(message, domain);
   }
+  const saved =
+    /^EventKit error: reminder_saved_outcome_unknown:(.{1,512})$/.exec(message);
+  if (saved?.[1]) throw new CliReminderOutcomeUnknownError(saved[1]);
+  const temporal =
+    /^Invalid input: ((?:invalid_temporal_alarm_(?:instant|offset|range|shape|due_precision)|temporal_alarm_(?:past|target_missing|target_ambiguous|duplicate)))$/.exec(
+      message,
+    );
+  if (temporal?.[1]) throw new CliPreconditionError(temporal[1]);
   throw new CliUserError(message);
 }
 

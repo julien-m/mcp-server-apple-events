@@ -95,6 +95,23 @@ describe('eventCli', () => {
     delete process.env.EVENTKIT_CLI_TIMEOUT_MS;
   });
 
+  it('maps a known pre-save temporal rejection and retains a post-save native identity', async () => {
+    respondWith({
+      error: new Error('exit 1') as ExecFileException,
+      stderr: 'Error: Invalid input: temporal_alarm_target_ambiguous',
+    });
+    await expect(
+      executeEventCliJson(['reminders', 'update']),
+    ).rejects.toMatchObject({ code: 'temporal_alarm_target_ambiguous' });
+    respondWith({
+      error: new Error('exit 1') as ExecFileException,
+      stderr: 'Error: EventKit error: reminder_saved_outcome_unknown:native-id',
+    });
+    await expect(
+      executeEventCliJson(['reminders', 'create']),
+    ).rejects.toMatchObject({ reminderId: 'native-id' });
+  });
+
   describe('executeEventCliJson — success', () => {
     it('parses raw JSON array from stdout (no envelope)', async () => {
       respondWith({

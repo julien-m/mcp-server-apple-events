@@ -96,6 +96,7 @@ export interface SubtaskProgress {
  * Reminder item interface
  */
 export interface Reminder {
+  version?: string; // SHA256 of the complete last native observation; not provider CAS.
   id: string;
   title: string;
   startDate?: string;
@@ -259,7 +260,14 @@ interface BaseToolArgs {
 /**
  * Tool argument types - keeping flexible for handler routing while maintaining type safety
  */
+export type TemporalAlarmMutation =
+  | { action: 'add'; at: string }
+  | { action: 'replace'; target: string; at: string }
+  | { action: 'clear'; target: string };
+
 export interface ReminderScheduleWrite {
+  /** Omit to preserve all alarms; target is the unique non-location absolute instant read back. */
+  temporalAlarm?: TemporalAlarmMutation;
   /** Omit to preserve; false disables native Urgent. */
   urgent?: boolean;
   /** Omit to preserve; null removes the recurrence. */
@@ -273,6 +281,7 @@ export interface ReminderScheduleWrite {
 }
 
 export interface RemindersToolArgs extends BaseToolArgs, ReminderScheduleWrite {
+  expectedVersion?: string;
   action: ReminderAction;
   id?: string;
   // Read filters
@@ -319,6 +328,7 @@ export type SubtaskAction =
  * Tool arguments for subtask operations
  */
 export interface SubtasksToolArgs extends BaseToolArgs {
+  expectedVersion?: string;
   action: SubtaskAction;
   reminderId: string; // Parent reminder ID (required)
   subtaskId?: string; // Subtask ID (for update, delete, toggle)

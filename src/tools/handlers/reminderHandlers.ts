@@ -110,6 +110,7 @@ export const handleCreateReminder = async (
       recurrence: validatedArgs.recurrence,
       earlyReminderMinutes: validatedArgs.earlyReminderMinutes,
       urgent: validatedArgs.urgent,
+      temporalAlarm: validatedArgs.temporalAlarm,
     });
     return createStructuredToolResult('Created reminder.', [reminder]);
   }, 'create reminder');
@@ -157,6 +158,9 @@ export const handleUpdateReminder = async (
 
     const reminder = await reminderRepository.updateReminder({
       id: validatedArgs.id,
+      ...(validatedArgs.temporalAlarm
+        ? { expectedVersion: validatedArgs.expectedVersion }
+        : {}),
       newTitle: validatedArgs.title,
       notes: notesToSend,
       url: validatedArgs.url,
@@ -167,6 +171,7 @@ export const handleUpdateReminder = async (
       recurrence: validatedArgs.recurrence,
       earlyReminderMinutes: validatedArgs.earlyReminderMinutes,
       urgent: validatedArgs.urgent,
+      temporalAlarm: validatedArgs.temporalAlarm,
     });
     return createStructuredToolResult('Updated reminder.', [reminder]);
   }, 'update reminder');

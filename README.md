@@ -346,3 +346,107 @@ MIT
 ## Contributing
 
 Contributions welcome! Please read the contributing guidelines first.
+
+## Reminder write concurrency
+
+Reminder reads (`reminders_tasks`, and the parent record from `reminders_subtasks`)
+return a `version`: a SHA-256 token for the complete native observation. Pass that
+exact token as `expectedVersion` for task update/delete and **every subtask write**,
+including subtask creation. Read again after a successful write. Missing versions
+return `revision_required`; stale versions return `revision_conflict`, without
+starting a native mutation. Clients must upgrade to this contract.
+
+The MCP owns the complete read/modify/write/readback critical section. All reminder
+and reminder-list writes from cooperating MCP processes under the same macOS user
+share one filesystem lock, including writes from separate stdio/HTTP sessions.
+Atlas and other clients should consume this contract rather than implement their
+own reminder lock. List writes share serialization but do not expose snapshot
+preconditions. Existing action approval requirements remain applicable.
+
+Results expose `structuredContent.concurrency.guarantee = native_observed_non_atomic`.
+The repository checks the native acknowledgement against the exact sent fields
+(including composed notes); the coordinator then compares it with a fresh native
+read. A matching acknowledgement/readback alone does not prove the requested effect. Subtask writes also return `reminderWrite.id/version` for their parent.
+Delete success requires the exact native not-found readback. A detected discrepancy
+returns `needs_reconciliation`; a failed/ambiguous write or readback returns
+`outcome_unknown`, retaining any available native identity. Neither case is retried
+automatically. Reconcile by reading before deciding on another write; do not replay
+an uncertain create. This is not durable request-id deduplication.
+
+The lock protects **cooperating local MCP writers**, not direct `bin/event` calls,
+Reminders.app, Atlas's own EventKit adapter, or changes arriving from iOS/iCloud.
+Apple EventKit has no conditional reminder save/delete tied to this snapshot.
+External edits can occur between checks and may be overwritten or remain
+undetectable. A matched readback proves only the observed Mac store state, not
+atomic cross-device isolation, iCloud propagation, or notification delivery.
+Atlas must keep its local revisions, approvals, identity mappings and reconciliation
+of unknown/conflicting outcomes.
+
+Lock acquisition waits at most 10 seconds, then returns `writer_busy` without
+starting a write. Cancellation before execution prevents the queued mutation.
+The lock is released on normal completion/errors. A crashed writer leaves a lock
+at `~/Library/Application Support/mcp-server-apple-events/reminder-write.lock`.
+It is deliberately never stolen on a timer: first stop all cooperating writers
+and their native helpers, reconcile any uncertain reminder operation, and only
+then remove the orphan directory. The lock stores no reminder contents.
+
+Urgent and Early Reminder writes remain available, but their ReminderKit values
+are absent from the native read model. Such writes retain their native identity
+and return `outcome_unknown` instead of claiming verified success. Do not repeat
+them blindly. The native read model must expose those fields before this MCP can
+verify their final values.
+
+### Targeted absolute temporal alarm
+
+`reminders_tasks` accepts `temporalAlarm` on create/update:
+
+- `{ "action": "add", "at": "<instant>" }` adds one absolute display alarm.
+- `{ "action": "replace", "target": "<observed absoluteDate>", "at": "<instant>" }`
+  replaces exactly one non-location absolute alarm with a new absolute display alarm.
+- `{ "action": "clear", "target": "<observed absoluteDate>" }` removes that alarm.
+
+Create accepts `add` only. Omission preserves all alarms. Update still requires
+`expectedVersion` from the last read. The action is the alarm field mask: it never
+clears all alarms, changes a relative/location alarm, or selects an array index.
+The selector is the observed instant, not an invented native alarm ID; equivalent
+offsets identify the same instant. Zero matches return `temporal_alarm_target_missing`;
+multiple matches return `temporal_alarm_target_ambiguous`. A new alarm colliding
+with another absolute temporal alarm returns `temporal_alarm_duplicate`.
+
+Instants must be strict RFC3339 with an explicit `Z` or `±HH:mm` offset, whole
+seconds (optional `.000` is accepted for native readback), in UTC years 2001–2099.
+Offsets are limited to ±14:00; `-00:00`, nonzero fractional seconds, leap seconds,
+invalid calendar dates and implicit local-zone values are rejected. No DST or
+locale correction is performed. A new `at` must be strictly later than the captured
+validation clock, checked again natively before save. A past `target` may be
+cleared. The offset defines the instant; a named display zone is not inferred. Timed dueDate/startDate values supplied alongside temporalAlarm must also carry an explicit offset and have seconds00: native Reminders persists those fields only to the minute, while absolute alarms retain seconds. Nonzero due/start seconds are rejected rather than rounded. If intentionally moving both due and start, supply both fields explicitly; unspecified fields remain preservation-checked.
+
+The native boundary adds/removes only the selected `EKAlarm`, preserving other
+alarms and reminder fields. The repository checks the complete preserved alarm
+multiset and native fields outside explicitly supplied mutation fields, then the
+coordinator performs its fresh readback. A late baseline version change is refused
+before invoking the write. Known pre-save rejections carry `error.outcome=not_started`;
+a failed post-save step preserves `nativeReceipt.id` when available and remains
+`outcome_unknown`. The JSON text mirror includes the same receipt as structured
+content. Never replay an uncertain create; reconcile its retained identity first.
+The existing `native_observed_non_atomic` limit still applies.
+
+A readback containing a temporal alarm proves its observed native-store state.
+It does not prove OS notification permission, delivery, iCloud propagation or
+notification receipt after an application quits. Those require a separately
+observed synthetic qualification. Urgent/Early Reminder limitations remain as
+specified above.
+
+Read [the qualification script](examples/temporal-alarm-qualification.mjs) and
+[its strict input boundary](examples/temporal-alarm-config.mjs) for one explicitly
+authorized synthetic run. Supply a reviewed JSON config with `url`, `clientName`,
+`statePath`, `receiptPath`, `timeoutMs`, `minimumLeadMs`, unique `listName`,
+`reminder` (`title`, optional `note`/`dueDate`, `temporalAlarm` add), and 2–8
+`writers` (`title`, future `at`). Run phases `prepare`, `contend`, `read`, then
+`cleanup`, passing that config path. Each writer is a separate real MCP client
+process using the same captured version; no lock is implemented in the script.
+The script refuses existing creation attempts, logs only its own synthetic records
+and list aggregates, and never deletes a reminder/list. Cleanup rereads the owned
+identity/version, clears only the observed test alarm and marks the fixture
+completed, retaining its baseline and record/list for review. Native notification
+observation and the safe application-shutdown window are recorded separately.

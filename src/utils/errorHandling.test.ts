@@ -1,3 +1,7 @@
+import {
+  CliPreconditionError,
+  CliReminderOutcomeUnknownError,
+} from '../types/cli-errors.js';
 /**
  * errorHandling.test.ts
  * Tests for error handling utilities
@@ -493,5 +497,21 @@ describe('ErrorHandling', () => {
         expect(text).toContain('Full Calendar Access');
       });
     });
+  });
+});
+
+it('keeps known no-write rejection separate from a saved but unknown native result', async () => {
+  const rejected = await handleAsyncOperation(async () => {
+    throw new CliPreconditionError('temporal_alarm_duplicate');
+  }, 'write reminder');
+  expect(rejected.structuredContent).toMatchObject({
+    error: { code: 'temporal_alarm_duplicate', outcome: 'not_started' },
+  });
+  const unknown = await handleAsyncOperation(async () => {
+    throw new CliReminderOutcomeUnknownError('native-id');
+  }, 'write reminder');
+  expect(unknown.structuredContent).toMatchObject({
+    error: { code: 'outcome_unknown' },
+    nativeReceipt: { id: 'native-id', trust: 'untrusted' },
   });
 });

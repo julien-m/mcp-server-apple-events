@@ -37,10 +37,18 @@ export type StructuredToolContent<T> = {
 export const createStructuredToolResult = <T>(
   operation: string,
   records: readonly T[],
+  metadata: {
+    reminderWrite?: {
+      id: string;
+      version?: string;
+      writeVerification?: 'matched' | 'mismatch' | 'unavailable';
+    };
+  } = {},
 ): CallToolResult => {
   const structuredContent: StructuredToolContent<T> = {
     provenance: TOOL_RESULT_PROVENANCE,
     records: [...records],
+    ...metadata,
   };
 
   return {

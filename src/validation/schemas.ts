@@ -1,4 +1,8 @@
 import { z } from 'zod/v3';
+import {
+  alarmInstant,
+  TemporalAlarmSchema,
+} from '../reminders/temporal-alarm.js';
 import { VALIDATION } from '../utils/constants.js';
 import { parseReminderDueDate } from '../utils/reminderDateParser.js';
 
@@ -470,6 +474,7 @@ const SubtaskTitleSchema = createSafeTextSchema(
 const SubtaskTitleArraySchema = z.array(SubtaskTitleSchema).optional();
 
 const ReminderScheduleFields = {
+  temporalAlarm: TemporalAlarmSchema.optional(),
   urgent: z.boolean().optional(),
   recurrence: z
     .object({
@@ -530,10 +535,40 @@ function validateEarlyDue(
     });
 }
 
+function validateTemporalDatePrecision(
+  value: { temporalAlarm?: unknown; dueDate?: string; startDate?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (!value.temporalAlarm) return;
+  for (const [field, input] of Object.entries({
+    dueDate: value.dueDate,
+    startDate: value.startDate,
+  })) {
+    if (!input || input.length === 10) continue;
+    try {
+      if (alarmInstant(input) % 60_000 !== 0) throw new Error('precision');
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [field],
+        message:
+          'Timed due/start values with temporalAlarm require an explicit RFC3339 offset and whole-minute precision; native Reminders does not retain due/start seconds.',
+      });
+    }
+  }
+}
+
 export const CreateReminderSchema = z
   .object(BaseReminderFields)
   .superRefine((value, ctx) => {
     validateEarlyDue(value, ctx);
+    validateTemporalDatePrecision(value, ctx);
+    if (value.temporalAlarm && value.temporalAlarm.action !== 'add')
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['temporalAlarm'],
+        message: 'Create accepts only temporalAlarm add.',
+      });
     if (
       (value.recurrence ||
         value.earlyReminderMinutes != null ||
@@ -585,6 +620,7 @@ export const ReadRemindersSchema = z
 export const UpdateReminderSchema = z
   .object({
     ...ReminderScheduleFields,
+    expectedVersion: z.string().optional(),
     id: SafeIdSchema,
     title: SafeTextSchema.optional(),
     startDate: SafeDateSchema,
@@ -598,7 +634,10 @@ export const UpdateReminderSchema = z
     addTags: TagArraySchema,
     removeTags: TagArraySchema,
   })
-  .superRefine(validateEarlyDue);
+  .superRefine((value, ctx) => {
+    validateEarlyDue(value, ctx);
+    validateTemporalDatePrecision(value, ctx);
+  });
 
 export const DeleteReminderSchema = z.object({
   id: SafeIdSchema,

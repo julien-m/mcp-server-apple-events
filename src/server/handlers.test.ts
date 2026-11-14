@@ -225,7 +225,7 @@ describe('Server Handlers', () => {
 
   describe('CallToolRequestSchema handler', () => {
     let callToolHandler: jest.MockedFunction<
-      (args: unknown) => Promise<unknown>
+      (args: unknown, extra?: { signal: AbortSignal }) => Promise<unknown>
     >;
 
     beforeEach(() => {
@@ -242,7 +242,10 @@ describe('Server Handlers', () => {
           ).CallToolRequestSchema;
           if (schema === (CallToolRequestSchema as unknown)) {
             callToolHandler = handler as jest.MockedFunction<
-              (args: unknown) => Promise<unknown>
+              (
+                args: unknown,
+                extra?: { signal: AbortSignal },
+              ) => Promise<unknown>
             >;
           }
           return originalSetRequestHandler.call(
@@ -268,7 +271,9 @@ describe('Server Handlers', () => {
         },
       };
 
-      const result = await callToolHandler(request);
+      const result = await callToolHandler(request, {
+        signal: new AbortController().signal,
+      });
       expect(result).toBeDefined();
     });
   });

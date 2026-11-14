@@ -4,6 +4,10 @@
  */
 
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import {
+  coordinateReminderListWrite,
+  coordinateReminderWrite,
+} from '../reminders/write-coordinator.js';
 import type {
   CalendarsToolArgs,
   CalendarToolArgs,
@@ -47,6 +51,7 @@ export type ConfirmWrite = (name: string, args: ToolArgs) => Promise<boolean>;
 type ToolRouter = (
   args?: ToolArgs,
   confirmWrite?: ConfirmWrite,
+  signal?: AbortSignal,
 ) => Promise<CallToolResult>;
 
 type ActionHandler<TArgs extends { action: string }> = (
@@ -67,7 +72,11 @@ const createActionRouter = <TArgs extends ToolArgs>(
   toolName: RoutedToolName,
   handlerMap: Record<TArgs['action'], ActionHandler<TArgs>>,
 ): ToolRouter => {
-  return async (args?: ToolArgs, confirmWrite?: ConfirmWrite) => {
+  return async (
+    args?: ToolArgs,
+    confirmWrite?: ConfirmWrite,
+    signal?: AbortSignal,
+  ) => {
     if (!args) {
       return createErrorResponse('No arguments provided');
     }
@@ -86,7 +95,8 @@ const createActionRouter = <TArgs extends ToolArgs>(
     if (action !== 'read') {
       let confirmed = false;
       try {
-        confirmed = (await confirmWrite?.(toolName, typedArgs)) === true;
+        confirmed =
+          (await confirmWrite?.(toolName, structuredClone(typedArgs))) === true;
       } catch {
         return createErrorResponse(
           'User confirmation is unavailable. No changes were made. Use a host that supports MCP form elicitation and try again.',
@@ -100,6 +110,19 @@ const createActionRouter = <TArgs extends ToolArgs>(
     }
 
     const handler = handlerMap[action as keyof typeof handlerMap];
+    if (action !== 'read' && toolName === 'reminders_lists')
+      return coordinateReminderListWrite(() => handler(typedArgs), signal);
+    if (
+      action !== 'read' &&
+      (toolName === 'reminders_tasks' || toolName === 'reminders_subtasks')
+    )
+      return coordinateReminderWrite(
+        toolName,
+        typedArgs,
+        () => handler(typedArgs),
+        undefined,
+        signal,
+      );
     return handler(typedArgs);
   };
 };
@@ -165,13 +188,14 @@ export async function handleToolCall(
   name: string,
   args?: ToolArgs,
   confirmWrite?: ConfirmWrite,
+  signal?: AbortSignal,
 ): Promise<CallToolResult> {
   if (!isManagedToolName(name)) {
     return createErrorResponse(MESSAGES.ERROR.UNKNOWN_TOOL(name));
   }
 
   const router = TOOL_ROUTER_MAP[name];
-  return router(args, confirmWrite);
+  return router(args, confirmWrite, signal);
 }
 
 export { TOOLS };

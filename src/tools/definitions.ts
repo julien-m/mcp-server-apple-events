@@ -27,6 +27,43 @@ export const TOOLS: Tool[] = [
           enum: REMINDER_ACTIONS,
           description: 'The operation to perform.',
         },
+        expectedVersion: {
+          type: 'string',
+          pattern: '^[a-f0-9]{64}$',
+          description:
+            'Required for update/delete: version from the last reminder read. Stale versions are rejected under a shared local MCP write lock. EventKit/iCloud remains native_observed_non_atomic.',
+        },
+        temporalAlarm: {
+          description:
+            'Target one non-location absolute alarm. Create accepts add only. Omit to preserve all alarms. at must be a strictly future RFC3339 instant with explicit offset, whole seconds (optional .000), UTC years 2001–2099; no local-time parsing. target is the absoluteDate read back (equivalent offsets allowed), must match exactly one non-location alarm. Missing/ambiguous targets and duplicate instants fail before save; clear may target a past alarm. Other alarms and fields remain intact.',
+          oneOf: [
+            {
+              type: 'object',
+              properties: { action: { const: 'add' }, at: { type: 'string' } },
+              required: ['action', 'at'],
+              additionalProperties: false,
+            },
+            {
+              type: 'object',
+              properties: {
+                action: { const: 'replace' },
+                target: { type: 'string' },
+                at: { type: 'string' },
+              },
+              required: ['action', 'target', 'at'],
+              additionalProperties: false,
+            },
+            {
+              type: 'object',
+              properties: {
+                action: { const: 'clear' },
+                target: { type: 'string' },
+              },
+              required: ['action', 'target'],
+              additionalProperties: false,
+            },
+          ],
+        },
         // ID-based operations
         id: {
           type: 'string',
@@ -365,6 +402,12 @@ export const TOOLS: Tool[] = [
     inputSchema: {
       type: 'object',
       properties: {
+        expectedVersion: {
+          type: 'string',
+          pattern: '^[a-f0-9]{64}$',
+          description:
+            'Required for every subtask write: parent reminder version from reminders_tasks read or reminders_subtasks read. Read parent again after a successful write.',
+        },
         action: {
           type: 'string',
           enum: ['read', 'create', 'update', 'delete', 'toggle', 'reorder'],

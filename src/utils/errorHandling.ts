@@ -1,3 +1,15 @@
+import {
+  CliPreconditionError,
+  CliReminderOutcomeUnknownError,
+  CliUserError,
+} from '../types/cli-errors.js';
+
+export {
+  CliPreconditionError,
+  CliReminderOutcomeUnknownError,
+  CliUserError,
+} from '../types/cli-errors.js';
+
 /**
  * errorHandling.ts
  * Centralized error handling utilities for consistent error responses
@@ -20,18 +32,6 @@ function isUserActionablePermissionError(message: string): boolean {
   return USER_ACTIONABLE_PERMISSION_PATTERNS.some((pattern) =>
     pattern.test(message),
   );
-}
-
-/**
- * Custom error class for user-facing CLI failures (e.g., not found, invalid
- * input). Lives in this leaf module so it's importable from both repository
- * and handler layers without circular imports.
- */
-export class CliUserError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'CliUserError';
-  }
 }
 
 /**
@@ -91,6 +91,27 @@ export async function handleAsyncOperation(
       isError: false,
     };
   } catch (error) {
+    if (error instanceof CliReminderOutcomeUnknownError) {
+      const structuredContent = {
+        error: { code: 'outcome_unknown' },
+        nativeReceipt: { id: error.reminderId, trust: 'untrusted' },
+      };
+      return {
+        content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+        structuredContent,
+        isError: true,
+      };
+    }
+    if (error instanceof CliPreconditionError) {
+      const structuredContent = {
+        error: { code: error.code, outcome: 'not_started' },
+      };
+      return {
+        content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+        structuredContent,
+        isError: true,
+      };
+    }
     return {
       content: [
         {

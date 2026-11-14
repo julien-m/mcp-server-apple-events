@@ -7,6 +7,12 @@
  * not used so the AdvancedReminderEdit Shortcut is not required.
  */
 
+import {
+  plannedTemporalAlarms,
+  verifyTemporalPreservation,
+} from '../reminders/temporal-alarm.js';
+import { reminderVersion } from '../reminders/version.js';
+import { verifyReminderEffect } from '../reminders/write-effect.js';
 import type {
   Reminder,
   ReminderList,
@@ -31,7 +37,7 @@ import {
   shiftDays,
   toDateOnly,
 } from './dateUtils.js';
-import { CliUserError } from './errorHandling.js';
+import { CliPreconditionError, CliUserError } from './errorHandling.js';
 import { executeEventCliJson, executeEventCliPlain } from './eventCli.js';
 import {
   addArg,
@@ -44,6 +50,8 @@ import { getSubtaskProgress, parseSubtasks } from './subtaskUtils.js';
 import { extractTags } from './tagUtils.js';
 
 function addScheduleArgs(args: string[], data: ReminderScheduleWrite): void {
+  if (data.temporalAlarm)
+    addArg(args, '--temporal-alarm-json', JSON.stringify(data.temporalAlarm));
   if (data.urgent !== undefined) addArg(args, '--urgent', String(data.urgent));
   if (data.recurrence === null) args.push('--clear-schedule-recurrence');
   else if (data.recurrence !== undefined)
@@ -222,6 +230,8 @@ class ReminderRepository implements IReminderRepository {
         });
     }
 
+    normalizedReminder.version = reminderVersion(reminder);
+
     const tags = extractTags(reminder.notes);
     if (tags.length > 0) {
       normalizedReminder.tags = tags;
@@ -295,6 +305,9 @@ class ReminderRepository implements IReminderRepository {
   }
 
   async createReminder(data: CreateReminderData): Promise<ReminderJSON> {
+    const expectedAlarms = data.temporalAlarm
+      ? plannedTemporalAlarms([], data.temporalAlarm, Date.now())
+      : undefined;
     const args: string[] = ['reminders', 'create'];
     addScheduleArgs(args, data);
     addArg(args, '--title', data.title);
@@ -306,12 +319,40 @@ class ReminderRepository implements IReminderRepository {
     // Skip the AdvancedReminderEdit Shortcut path — tags / subtasks live in
     // the notes field (see tagUtils / subtaskUtils).
     args.push('--no-shortcuts', '--json');
-    return executeEventCliJson<ReminderJSON>(args);
+    const reminder = await executeEventCliJson<ReminderJSON>(args);
+    return {
+      ...reminder,
+      version: reminderVersion(reminder),
+      writeVerification:
+        expectedAlarms &&
+        !verifyTemporalPreservation(undefined, expectedAlarms, reminder, data)
+          ? 'mismatch'
+          : verifyReminderEffect(data, reminder),
+    };
   }
 
   async updateReminder(data: UpdateReminderData): Promise<ReminderJSON> {
     // Cross-list moves are rejected by the handler, which shares its
     // `findReminderById` fetch with the notes-rebuild path.
+    if (data.temporalAlarm && !data.expectedVersion)
+      throw new CliPreconditionError('revision_required');
+    const baseline = data.temporalAlarm
+      ? await executeEventCliJson<ReminderJSON>([
+          'reminders',
+          'get',
+          `--id=${data.id}`,
+          '--json',
+        ])
+      : undefined;
+    if (baseline && reminderVersion(baseline) !== data.expectedVersion)
+      throw new CliPreconditionError('revision_conflict');
+    const expectedAlarms = data.temporalAlarm
+      ? plannedTemporalAlarms(
+          baseline?.alarms ?? [],
+          data.temporalAlarm,
+          Date.now(),
+        )
+      : undefined;
     const args: string[] = ['reminders', 'update'];
     addScheduleArgs(args, data);
     addArg(args, '--id', data.id);
@@ -325,7 +366,16 @@ class ReminderRepository implements IReminderRepository {
       addArg(args, '--completed', data.isCompleted ? 'true' : 'false');
     }
     args.push('--no-shortcuts', '--json');
-    return executeEventCliJson<ReminderJSON>(args);
+    const reminder = await executeEventCliJson<ReminderJSON>(args);
+    return {
+      ...reminder,
+      version: reminderVersion(reminder),
+      writeVerification:
+        expectedAlarms &&
+        !verifyTemporalPreservation(baseline, expectedAlarms, reminder, data)
+          ? 'mismatch'
+          : verifyReminderEffect(data, reminder),
+    };
   }
 
   async deleteReminder(id: string): Promise<void> {
